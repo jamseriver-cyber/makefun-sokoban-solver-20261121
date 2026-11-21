@@ -33,8 +33,8 @@ for (let instance = 6; --instance;) {
     });
 
     const seen = {};
-    // Budgets are positive, with 1 representing zero pushes remaining.
-    for (let bound = 1; !visit(home, initial, bound); bound++) {}
+    // Positive budgets count remaining pushes plus one. Every nonempty generated room needs at least 12 pushes.
+    for (let bound = 12; !visit(home, initial, ++bound);) {}
 
     function visit(at, boxes, budget) {
       const budgets = (seen[boxes] ??= []);
