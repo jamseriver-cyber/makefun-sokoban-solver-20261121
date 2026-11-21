@@ -20,23 +20,27 @@ if (!attribution) {
   throw new Error('Missing original attribution.');
 }
 const body = source.slice(attribution.length).trimStart();
-const program = packed ? body.replace(/^import fs from 'fs';/, "const fs = require('fs');") : body;
-if (packed && program === body) {
-  throw new Error('Cannot prepare the CommonJS version of the solver.');
+const importLine = /^import fs from 'fs';\s*/;
+if (packed && !importLine.test(body)) {
+  throw new Error('Missing the file-system import used by the packed launcher.');
 }
+// The launcher supplies the file-system methods to the enclosed packed solver.
+const program = packed ? body.replace(importLine, '').replace(/\bfs\./g, 't.')
+  .replace('t.readFileSync(', 'a(').replace(/(^[ \t]*|\bfor \()(?:const|let)(?= )/gm, '$1var') : body;
 
 const compiled = await minify(program, {
   ecma: 2022,
   module: true,
   compress: {
     passes: packed ? 2 : 3,
+    if_return: !packed,
     // The evaluator mounts these paths in every official run.
     global_defs: {
       'process.env.MAKEFUN_INPUT_DIR': '/input',
       'process.env.MAKEFUN_OUTPUT_DIR': '/output',
     },
   },
-  mangle: true,
+  mangle: packed ? { reserved: ['t', 'a'] } : true,
 });
 if (!compiled.code) {
   throw new Error('Terser emitted no code.');
@@ -50,17 +54,18 @@ if (packed) {
     throw new Error('The packed output directory contains files from another build.');
   }
 
-  const payload = brotliCompressSync(compiled.code, { params: {
+  const enclosed = '(()=>{' + compiled.code + '})()';
+  const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
-    [constants.BROTLI_PARAM_NPOSTFIX]: 2,
-    [constants.BROTLI_PARAM_NDIRECT]: 8,
+    [constants.BROTLI_PARAM_NPOSTFIX]: 0,
+    [constants.BROTLI_PARAM_NDIRECT]: 0,
     [constants.BROTLI_PARAM_LGWIN]: 16,
-    [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(compiled.code),
+    [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(enclosed),
   } });
   // Use the repository owner's public author name in the generated package.
   const notice = '//©2026 jamseriver-cyber\n';
   // Read and evaluate only our own solver bundled next to the launcher.
-  const launcher = 'eval(require("zlib").brotliDecompressSync(require("fs").readFileSync("/bot/s"))+"")';
+  const launcher = 'var t=require("fs"),a=t.readFileSync;eval(require("zlib").brotliDecompressSync(a("/bot/s"))+"")';
   mkdirSync(destination, { recursive: true });
   if (sourceBundle) {
     // The anchored source-bundle history retains the complete MIT license.

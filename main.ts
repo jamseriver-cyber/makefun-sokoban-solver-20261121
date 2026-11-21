@@ -39,12 +39,13 @@ for (let instance = 6; --instance;) {
     function visit(at, boxes, budget) {
       const budgets = (seen[boxes] ??= []);
       // A wall step would clear the low bit, so it cannot be part of a solution.
-      return (boxes & 1) && (budgets[at] ?? 0) < budget && (budgets[at] = budget) &&
+      return (boxes & 1) && (budgets[at] || 0) < budget && (budgets[at] = budget) &&
         ((at === home && boxes === goals) || steps.some((step, direction) => {
         const next = at + step;
         const box = boxes & floor[next];
-        // An invalid push clears a box bit and cannot reach the same-size target.
-        return visit(next, boxes ^ box ^ (box && floor[next + step] & ~boxes), budget - !!box) &&
+        // An occupied destination loses crates, and a wall clears the sentinel.
+        // Neither branch can return to the original crate count on legal floor.
+        return visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) &&
           (answer = 'drlu'[direction] + answer);
       }));
     }
