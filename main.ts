@@ -1,75 +1,69 @@
 // Copyright (c) 2026 2pjWaZvWitJQ1LiyvEykMCn3JsXGRRjwK7u6dCMPFQ3Y
 import fs from 'node:fs';
 
-const I = process.env.MAKEFUN_INPUT_DIR ?? '/input';
-const O = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-
 const moves = 'udlr';
-
-function solveRoom(board, entrance, steps) {
-  const cells = new Set([entrance]);
-  let goals = 0, initial = 0, index = 0;
-  for (const cell of cells) {
-    const tile = board[cell];
-    const bit = board[cell] = 1 << index++;
-    if ('.*+'.includes(tile)) goals |= bit;
-    if ('$*'.includes(tile)) initial |= bit;
-    for (const step of steps) {
-      if (' .$*@+'.includes(board[cell + step])) cells.add(cell + step);
-    }
-  }
-
-  const pushes = [[entrance, initial, '']];
-  const seen = new Set();
-  for (const [entry, boxes, prefix] of pushes) {
-    const walks = [[entry, prefix]];
-    for (const [player, path] of walks) {
-      const state = boxes * board.length + player;
-      if (seen.has(state)) continue;
-      seen.add(state);
-      if (boxes === goals && player === entrance) return path;
-
-      for (const [direction, step] of steps.entries()) {
-        const next = player + step;
-        const tile = board[next] | 0;
-        if (!tile) continue;
-        const route = path + moves[direction];
-        if (!(boxes & tile)) {
-          walks.push([next, route]);
-        } else {
-          const target = board[next + step] | 0;
-          if (target && target !== 1 && !(boxes & target)) {
-            pushes.push([next, boxes ^ tile ^ target, route]);
-          }
-        }
-      }
-    }
-  }
-  throw new Error('No solution for generated room');
-}
 
 function solve(level) {
   const board = level.replace(/\r/g, '').split('');
   const stride = board.indexOf('\n') + 1;
+  const steps = [-stride, stride, -1, 1];
   let player = board.indexOf('@');
   const hall = player - player % stride;
-  const steps = [-stride, stride, -1, 1];
-  board.fill('#', hall, hall + stride);
-  let path = '';
-  for (let door = hall + 1; door < hall + stride - 2; door++) {
-    if (board[door - stride] === '#' && board[door + stride] === '#') continue;
-    board[door] = ' ';
-    path += (door < player ? 'l' : 'r').repeat(Math.abs(door - player));
-    path += solveRoom(board, door, steps);
-    board[door] = '#';
-    player = door;
+  const room = cell => Math.floor((cell % stride - 1) / 7) + (cell < hall ? 0 : 2);
+  let answer = '';
+
+  rooms: for (let slot = 0; slot < 4; slot++) {
+    let bit = 1, initial = 0, goals = 0;
+    const floor = board.map((tile, cell) => {
+      if (!' .$*@+'.includes(tile)) return 0;
+      if (cell >= hall && cell < hall + stride) return 1;
+      if (room(cell) !== slot) return 0;
+      bit <<= 1;
+      if ('$*'.includes(tile)) initial |= bit;
+      if ('.*+'.includes(tile)) goals |= bit;
+      return bit;
+    });
+    if (!initial) continue;
+
+    const seen = new Set();
+    let walks = [[player, initial, '']], pushes = [];
+    while (walks.length || pushes.length) {
+      if (!walks.length) {
+        walks = pushes;
+        pushes = [];
+      }
+      const [at, boxes, path] = walks.pop();
+      const key = boxes * board.length + at;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (boxes === goals && floor[at] === 1) {
+        answer += path;
+        player = at;
+        continue rooms;
+      }
+      for (const [direction, step] of steps.entries()) {
+        const next = at + step;
+        const tile = floor[next];
+        if (!tile) continue;
+        let layout = boxes;
+        if (boxes & tile) {
+          const target = floor[next + step];
+          if (!target || target === 1 || (boxes & target)) continue;
+          layout ^= tile | target;
+        }
+        const frontier = layout === boxes ? walks : pushes;
+        frontier.push([next, layout, path + moves[direction]]);
+      }
+    }
+    throw new Error('No solution for generated room');
   }
-  return path;
+  return answer;
 }
 
+const I = process.env.MAKEFUN_INPUT_DIR ?? '/input';
+const O = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 for (const id of fs.readdirSync(I).sort()) {
   const folder = O + '/' + id;
-  const level = fs.readFileSync(I + '/' + id + '/level.txt', 'utf8');
   fs.mkdirSync(folder, { recursive: true });
-  fs.writeFileSync(folder + '/solution.txt', solve(level));
+  fs.writeFileSync(folder + '/solution.txt', solve(fs.readFileSync(I + '/' + id + '/level.txt', 'utf8')));
 }
