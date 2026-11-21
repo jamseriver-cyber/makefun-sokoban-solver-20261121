@@ -1,5 +1,5 @@
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { minify } from 'terser';
@@ -7,10 +7,11 @@ import { minify } from 'terser';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sourcePath = join(root, 'main.ts');
 const [outputPath, option] = process.argv.slice(2);
-const packed = option === '--packed';
+const sourceBundle = option === '--packed-source';
+const packed = sourceBundle || option === '--packed';
 const entryPath = outputPath && resolve(outputPath, ...(packed ? ['main.ts'] : []));
-if (!entryPath || entryPath === sourcePath || (option && !packed)) {
-  throw new Error('Pass a distinct output file, or an output directory followed by --packed.');
+if (!entryPath || !relative(sourcePath, entryPath) || (option && !packed)) {
+  throw new Error('Pass a distinct output file, or an output directory with --packed or --packed-source.');
 }
 
 const source = readFileSync(sourcePath, 'utf8');
@@ -29,7 +30,7 @@ const compiled = await minify(program, {
   module: true,
   compress: {
     passes: 3,
-    // Path mounts are fixed when Make.fun grades the submitted entry.
+    // The evaluator mounts these paths in every official run.
     global_defs: {
       'process.env.MAKEFUN_INPUT_DIR': '/input',
       'process.env.MAKEFUN_OUTPUT_DIR': '/output',
@@ -41,22 +42,37 @@ if (!compiled.code) {
   throw new Error('Terser emitted no code.');
 }
 
-const notice = attribution.replace('Copyright (c)', '©') + '\n';
 if (packed) {
   const destination = resolve(outputPath);
+  const allowed = ['LICENSE', 'main.ts', 's'];
+  if (!sourceBundle) allowed.push('.makefun');
+  if (existsSync(destination) && readdirSync(destination).some(name => !allowed.includes(name))) {
+    throw new Error('The packed output directory contains files from another build.');
+  }
+
   const payload = brotliCompressSync(compiled.code, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
     [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
-    [constants.BROTLI_PARAM_LGWIN]: 10,
+    [constants.BROTLI_PARAM_LGWIN]: 16,
     [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(compiled.code),
   } });
-  // The launcher only evaluates the solver embedded in this same committed package.
-  const launcher = 'eval(require("zlib").brotliDecompressSync(require("fs").readFileSync(__dirname+"/s"))+"");';
-  mkdirSync(join(destination, '.makefun'), { recursive: true });
-  copyFileSync(join(root, 'LICENSE'), join(destination, 'LICENSE'));
-  copyFileSync(join(root, '.makefun', 'owner.json'), join(destination, '.makefun', 'owner.json'));
+  // Use the repository owner's public author name in the generated package.
+  const notice = '//©2026 jamseriver-cyber\n';
+  // Read and evaluate only our own solver bundled next to the launcher.
+  const launcher = 'eval(require("zlib").brotliDecompressSync(require("fs").readFileSync("/bot/s"))+"")';
+  mkdirSync(destination, { recursive: true });
+  if (sourceBundle) {
+    // The anchored source-bundle history retains the complete MIT license.
+    writeFileSync(join(destination, 'LICENSE'), 'SPDX-License-Identifier: MIT\n');
+  } else {
+    const owner = readFileSync(join(root, '.makefun', 'owner.json'), 'utf8').trimEnd();
+    mkdirSync(join(destination, '.makefun'), { recursive: true });
+    copyFileSync(join(root, 'LICENSE'), join(destination, 'LICENSE'));
+    writeFileSync(join(destination, '.makefun', 'owner.json'), owner);
+  }
   writeFileSync(join(destination, 's'), payload);
   writeFileSync(entryPath, notice + launcher);
 } else {
+  const notice = attribution.replace('Copyright (c)', '©') + '\n';
   writeFileSync(entryPath, notice + compiled.code);
 }

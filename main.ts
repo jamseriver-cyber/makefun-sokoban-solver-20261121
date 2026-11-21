@@ -33,7 +33,7 @@ for (let instance = 6; --instance;) {
 
     const seen = {};
     // Budgets are positive, with 1 representing zero pushes remaining.
-    for (let bound = 13; !visit(home, initial, bound); bound++) {}
+    for (let bound = 1; !visit(home, initial, bound); bound++) {}
 
     function visit(at, boxes, budget) {
       const budgets = (seen[boxes] ??= []);
