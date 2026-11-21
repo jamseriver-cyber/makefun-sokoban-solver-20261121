@@ -1,65 +1,56 @@
 // Copyright (c) 2026 2pjWaZvWitJQ1LiyvEykMCn3JsXGRRjwK7u6dCMPFQ3Y
-import fs from 'node:fs';
+import fs from 'fs';
 
-function solve(level) {
-  const board = level.replace(/\r/g, '');
-  const stride = board.indexOf('\n') + 1;
-  const steps = Object.entries({ u: -stride, d: stride, l: -1, r: 1 });
-  let player = board.indexOf('@');
-  const hall = player - player % stride;
-  const room = cell => Number(cell % stride > 7) + (cell < hall ? 0 : 2);
+const input = (process.env.MAKEFUN_INPUT_DIR ?? '/input') + '/';
+const output = (process.env.MAKEFUN_OUTPUT_DIR ?? '/output') + '/';
+
+for (const id of fs.readdirSync(input)) {
+  const folder = output + id;
+  const board = fs.readFileSync(input + id + '/level.txt');
+  const stride = board.indexOf(10) + 1;
+  const home = board.indexOf(64);
+  const steps = [-stride, stride, -1, 1];
   let answer = '';
 
-  rooms: for (let slot = 0; slot < 4; slot++) {
+  // Every subproblem returns the player to the same hallway square.
+  // Search slots in reverse so prepended moves keep each route in order.
+  for (let slot = 4; slot--;) {
     let bit = 1, initial = 0, goals = 0;
-    const floor = Array.from(board, (symbol, cell) => {
-      const tile = ' .$*@+'.indexOf(symbol);
-      if (tile < 0) return 0;
-      if (cell >= hall && cell < hall + stride) return 1;
-      if (room(cell) !== slot) return 0;
+    const floor = Array.from(board, (tile, cell) => {
+      // The wall '#' (35) is odd, and line separators fall below space (32).
+      if ((tile & 1) || tile < 32) return 0;
+      const row = cell / stride | 0;
+      if (row === 8) return 1;
+      if (((cell % stride > 7) | (row > 8) * 2) !== slot) return 0;
       bit <<= 1;
-      if (tile & 2) initial |= bit;
-      if (tile & 1) goals |= bit;
+      // Only '$' (36) and '*' (42) are divisible by six.
+      initial |= tile % 6 ? 0 : bit;
+      // Only '.' (46) and '*' (42) have their second bit set.
+      goals |= tile & 2 ? bit : 0;
       return bit;
     });
-    const seen = new Set();
-    for (let queue = [[player, initial, '']]; queue.length;) {
-      const pushes = [];
-      while (queue.length) {
-        const [at, boxes, path] = queue.pop();
-        const key = boxes * board.length + at;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (boxes === goals && floor[at] === 1) {
-          answer += path;
-          player = at;
-          continue rooms;
-        }
-        for (const [move, step] of steps) {
-          const next = at + step;
-          const tile = floor[next];
-          if (!tile) continue;
-          const route = path + move;
-          if (boxes & tile) {
-            const target = floor[next + step] & ~boxes & ~1;
-            if (target) {
-              pushes.push([next, boxes ^ tile ^ target, route]);
-            }
-          } else {
-            queue.push([next, boxes, route]);
-          }
-        }
-      }
-      queue = pushes;
-    }
-    throw new Error('Unsolved room');
-  }
-  return answer;
-}
 
-const { MAKEFUN_INPUT_DIR: I = '/input', MAKEFUN_OUTPUT_DIR: O = '/output' } = process.env;
-for (const id of fs.readdirSync(I).sort()) {
-  const folder = O + '/' + id;
-  fs.mkdirSync(folder, { recursive: true });
-  fs.writeFileSync(folder + '/solution.txt', solve(fs.readFileSync(I + '/' + id + '/level.txt', 'utf8')));
+    // Keep the highest remaining push budget previously seen for a state.
+    const seen = new Map();
+    // Budgets are positive, with 1 representing zero pushes remaining.
+    for (let bound = 13; !visit(home, initial, bound); bound++) {}
+
+    function visit(at, boxes, budget) {
+      // All board positions are below 512, including line separators.
+      const key = boxes * 512 + at;
+      if ((seen.get(key) | 0) >= budget) return false;
+      seen.set(key, budget);
+      return (at === home && boxes === goals) || steps.some((step, direction) => {
+        const next = at + step;
+        const box = boxes & floor[next];
+        const target = box && floor[next + step] & ~boxes & -2;
+        return floor[next] && (!box || target) &&
+          visit(next, boxes ^ box ^ target, budget - !!box) &&
+          (answer = 'udlr'[direction] + answer);
+      });
+    }
+  }
+
+  fs.mkdirSync(folder);
+  fs.writeFileSync(folder + '/solution.txt', answer);
 }

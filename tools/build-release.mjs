@@ -18,12 +18,19 @@ if (!attribution) {
 const compiled = await minify(source.slice(attribution.length).trimStart(), {
   ecma: 2022,
   module: true,
-  compress: { passes: 3 },
+  compress: {
+    passes: 3,
+    // Paths mounted by Make.fun for every scored execution.
+    global_defs: {
+      'process.env.MAKEFUN_INPUT_DIR': '/input',
+      'process.env.MAKEFUN_OUTPUT_DIR': '/output',
+    },
+  },
   mangle: true,
-  format: { max_line_len: 112 },
 });
 if (!compiled.code) {
   throw new Error('Terser emitted no code.');
 }
 
-writeFileSync(outputPath, attribution + '\n' + compiled.code.trimEnd() + '\n');
+const releaseNotice = attribution.replace('Copyright (c)', '©');
+writeFileSync(outputPath, releaseNotice + '\n' + compiled.code);
