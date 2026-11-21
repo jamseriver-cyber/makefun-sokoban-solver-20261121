@@ -67,8 +67,8 @@ if (packed) {
   const enclosed = '(()=>{' + compiled.code.trim() + '})()';
   const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
-    [constants.BROTLI_PARAM_NPOSTFIX]: 2,
-    [constants.BROTLI_PARAM_NDIRECT]: 8,
+    [constants.BROTLI_PARAM_NPOSTFIX]: 3,
+    [constants.BROTLI_PARAM_NDIRECT]: 16,
     [constants.BROTLI_PARAM_LGWIN]: 16,
     [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(enclosed),
   } });

@@ -18,10 +18,9 @@ for (let instance = 6; --instance;) {
   for (let slot = 4; slot--;) {
     // Walls use the low bit. The hallway is walkable and carries no box bit.
     let bit = 1, initial = 1, goals = 1;
-    const floor = Array.from(board, (tile, cell) => {
+    const floor = Array.from(board, (tile, cell, row = cell / stride | 0) => {
       // The generator emits LF. Only walls (35) and line feeds (10) are divisible by five.
       if (tile % 5 === 0) return 1;
-      const row = cell / stride | 0;
       if (row === 8) return 0;
       if ((cell % stride / 8 | row / 4 & 2) !== slot) return 1;
       bit <<= 1;
@@ -34,21 +33,24 @@ for (let instance = 6; --instance;) {
 
     const seen = {};
     // Budgets are positive, with 1 representing zero pushes remaining.
+    // Array.some supplies three arguments. The remaining defaults compute the move.
+    const visit = (
+      at, boxes, budget,
+      budgets = (seen[boxes] ??= []),
+    ) =>
+      (boxes & 1) &&
+      (budgets[at] ?? 0) < budget &&
+      (budgets[at] = budget) &&
+      ((at === home && boxes === goals) || steps.some((
+        step, direction, _steps,
+        next = at + step,
+        box = boxes & floor[next],
+      ) =>
+        // A wall move loses the sentinel. An invalid crate move loses a crate bit.
+        visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) &&
+        (answer = 'drlu'[direction] + answer)
+      ));
     for (let bound = 1; !visit(home, initial, bound); bound++) {}
-
-    function visit(at, boxes, budget) {
-      const budgets = (seen[boxes] ??= []);
-      // A wall step would clear the low bit, so it cannot be part of a solution.
-      return (boxes & 1) && (budgets[at] ?? 0) < budget && (budgets[at] = budget) &&
-        ((at === home && boxes === goals) || steps.some((step, direction) => {
-        const next = at + step;
-        const box = boxes & floor[next];
-        // An occupied destination loses crates, and a wall clears the sentinel.
-        // Neither branch can return to the original crate count on legal floor.
-        return visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) &&
-          (answer = 'drlu'[direction] + answer);
-      }));
-    }
   }
 
   fs.mkdirSync(folder);
