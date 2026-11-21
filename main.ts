@@ -19,14 +19,12 @@ for (let instance = 6; --instance;) {
     // Walls use the low bit. The hallway is walkable and carries no box bit.
     let bit = 1, initial = 1, goals = 1;
     const floor = Array.from(board, (tile, cell, row = cell / stride | 0) => {
-      // The generator emits LF. Only walls (35) and line feeds (10) are divisible by five.
-      if (tile % 5 === 0) return 1;
+      if (!(tile % 5)) return 1;
       if (row === 8) return 0;
       if ((cell % stride / 8 | row / 4 & 2) !== slot) return 1;
-      bit <<= 1;
-      // Only '$' (36) and '*' (42) are divisible by six.
+      // Bitwise operations treat bit 31 identically before and after signed conversion.
+      bit += bit;
       initial |= tile % 6 ? 0 : bit;
-      // Only '.' (46) and '*' (42) have their second bit set.
       goals |= (tile & 2) && bit;
       return bit;
     });
