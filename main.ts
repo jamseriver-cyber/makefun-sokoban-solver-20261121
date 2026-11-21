@@ -1,2 +1,2 @@
 //©2026 jamseriver-cyber
-eval(require("zlib").brotliDecompressSync(require("fs").readFileSync("/bot/s"))+"")
+var t=require("fs"),a=t.readFileSync;eval(require("zlib").brotliDecompressSync(a("/bot/s"))+"")
