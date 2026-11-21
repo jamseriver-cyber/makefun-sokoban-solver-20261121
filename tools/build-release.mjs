@@ -3,6 +3,7 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { brotliCompressSync, constants } from 'node:zlib';
 import { minify } from 'terser';
+import UglifyJS from 'uglify-js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sourcePath = join(root, 'main.ts');
@@ -25,23 +26,32 @@ if (packed && !importLine.test(body)) {
   throw new Error('Missing the file-system import used by the packed launcher.');
 }
 // The launcher supplies the file-system methods to the enclosed packed solver.
-const program = packed ? body.replace(importLine, '').replace(/\bfs\./g, 't.')
-  .replace('t.readFileSync(', 'a(').replace(/(^[ \t]*|\bfor \()(?:const|let)(?= )/gm, '$1var') : body;
+const program = packed ? body.replace(importLine, '').replace(/\bfs\./g, 's.')
+  .replace('s.readFileSync(', 't(').replace(/(^[ \t]*|\bfor \()(?:const|let)(?= )/gm, '$1var') : body;
 
-const compiled = await minify(program, {
-  ecma: 2022,
-  module: true,
-  compress: {
-    passes: packed ? 2 : 3,
-    if_return: !packed,
-    // The evaluator mounts these paths in every official run.
-    global_defs: {
-      'process.env.MAKEFUN_INPUT_DIR': '/input',
-      'process.env.MAKEFUN_OUTPUT_DIR': '/output',
-    },
-  },
-  mangle: packed ? { reserved: ['t', 'a'] } : true,
-});
+const fixedMounts = {
+  'process.env.MAKEFUN_INPUT_DIR': '/input',
+  'process.env.MAKEFUN_OUTPUT_DIR': '/output',
+};
+let compiled;
+if (packed) {
+  const fixedProgram = program
+    .replace("process.env.MAKEFUN_INPUT_DIR ?? '/input'", "'/input'")
+    .replace("process.env.MAKEFUN_OUTPUT_DIR ?? '/output'", "'/output'");
+  compiled = UglifyJS.minify(fixedProgram, {
+    toplevel: true,
+    compress: { passes: 2, if_return: true, unsafe: false },
+    mangle: { reserved: ['s', 't'] },
+  });
+  if (compiled.error) throw compiled.error;
+} else {
+  compiled = await minify(program, {
+    ecma: 2022,
+    module: true,
+    compress: { passes: 3, global_defs: fixedMounts },
+    mangle: true,
+  });
+}
 if (!compiled.code) {
   throw new Error('Terser emitted no code.');
 }
@@ -54,18 +64,18 @@ if (packed) {
     throw new Error('The packed output directory contains files from another build.');
   }
 
-  const enclosed = '(()=>{' + compiled.code + '})()';
+  const enclosed = '(()=>{' + compiled.code.trim() + '})()';
   const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
-    [constants.BROTLI_PARAM_NPOSTFIX]: 0,
-    [constants.BROTLI_PARAM_NDIRECT]: 0,
+    [constants.BROTLI_PARAM_NPOSTFIX]: 2,
+    [constants.BROTLI_PARAM_NDIRECT]: 8,
     [constants.BROTLI_PARAM_LGWIN]: 16,
     [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(enclosed),
   } });
   // Use the repository owner's public author name in the generated package.
   const notice = '//©2026 jamseriver-cyber\n';
   // Read and evaluate only our own solver bundled next to the launcher.
-  const launcher = 'var t=require("fs"),a=t.readFileSync;eval(require("zlib").brotliDecompressSync(a("/bot/s"))+"")';
+  const launcher = 'var s=require("fs"),t=s.readFileSync;eval(require("zlib").brotliDecompressSync(t("/bot/s"))+"")';
   mkdirSync(destination, { recursive: true });
   if (sourceBundle) {
     // The anchored source-bundle history retains the complete MIT license.
