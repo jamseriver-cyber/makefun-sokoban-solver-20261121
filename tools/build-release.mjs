@@ -64,7 +64,8 @@ if (packed) {
     throw new Error('The packed output directory contains files from another build.');
   }
 
-  const enclosed = '(()=>{' + compiled.code.trim() + '})()';
+  // Keep the search in a function scope so V8 can optimize its captured variables.
+  const enclosed = '(function(){' + compiled.code.trim() + '})()';
   const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
     [constants.BROTLI_PARAM_NPOSTFIX]: 3,
