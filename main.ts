@@ -1,12 +1,2 @@
-// Copyright (c) 2026 2pjWaZvWitJQ1LiyvEykMCn3JsXGRRjwK7u6dCMPFQ3Y
-import t from"node:fs";function n(t){const n=t.replace(/\r/g,""),e=n.indexOf("\n")+1,o=Object.entries({u:-e,d:e,
-l:-1,r:1});let r=n.indexOf("@");const s=r-r%e,c=t=>Number(t%e>7)+(t<s?0:2);let i="";t:for(let t=0;t<4;t++){
-let f=1,l=0,u=0;const d=Array.from(n,(n,o)=>{const r=" .$*@+".indexOf(n)
-;return r<0?0:o>=s&&o<s+e?1:c(o)!==t?0:(f<<=1,2&r&&(l|=f),1&r&&(u|=f),f)}),p=new Set
-;for(let t=[[r,l,""]];t.length;){const e=[];for(;t.length;){const[s,c,f]=t.pop(),l=c*n.length+s;if(!p.has(l)){
-if(p.add(l),c===u&&1===d[s]){i+=f,r=s;continue t}for(const[n,r]of o){const o=s+r,i=d[o];if(!i)continue
-;const l=f+n;if(c&i){const t=d[o+r]&~c&-2;t&&e.push([o,c^i^t,l])}else t.push([o,c,l])}}}t=e}
-throw new Error("Unsolved room")}return i}
-const{MAKEFUN_INPUT_DIR:e="/input",MAKEFUN_OUTPUT_DIR:o="/output"}=process.env
-;for(const r of t.readdirSync(e).sort()){const s=o+"/"+r;t.mkdirSync(s,{recursive:!0}),
-t.writeFileSync(s+"/solution.txt",n(t.readFileSync(e+"/"+r+"/level.txt","utf8")))}
+// © 2026 2pjWaZvWitJQ1LiyvEykMCn3JsXGRRjwK7u6dCMPFQ3Y
+import t from"fs";const n="/input/";for(const r of t.readdirSync(n)){const e="/output/"+r,o=t.readFileSync(n+r+"/level.txt"),c=o.indexOf(10)+1,i=o.indexOf(64),f=[-c,c,-1,1];let s="";for(let l=4;l--;){let u=1,d=0,m=0;const y=Array.from(o,(t,n)=>{if(1&t||t<32)return 0;const r=n/c|0;return 8===r?1:(n%c>7|2*(r>8))!==l?0:(u<<=1,d|=t%6?0:u,m|=2&t?u:0,u)}),a=new Map;for(let x=13;!p(i,d,x);x++);function p(t,n,r){const e=512*n+t;return!((0|a.get(e))>=r)&&(a.set(e,r),t===i&&n===m||f.some((e,o)=>{const c=t+e,i=n&y[c],f=i&&y[c+e]&~n&-2;return y[c]&&(!i||f)&&p(c,n^i^f,r-!!i)&&(s="udlr"[o]+s)}))}}t.mkdirSync(e),t.writeFileSync(e+"/solution.txt",s)}
