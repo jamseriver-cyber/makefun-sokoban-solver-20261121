@@ -10,19 +10,20 @@ for (let instance = 6; --instance;) {
   const board = fs.readFileSync(input + id + '/level.txt');
   const stride = board.indexOf(10) + 1;
   const home = board.indexOf(64);
-  const steps = [-stride, stride, -1, 1];
+  const steps = [stride, 1, -1, -stride];
   let answer = '';
 
   // Every subproblem returns the player to the same hallway square.
   // Search slots in reverse so prepended moves keep each route in order.
   for (let slot = 4; slot--;) {
-    let bit = 1, initial = 0, goals = 0;
+    // Walls use the low bit. The hallway is walkable and carries no box bit.
+    let bit = 1, initial = 1, goals = 1;
     const floor = Array.from(board, (tile, cell) => {
       // The generator emits LF. Only walls (35) and line feeds (10) are divisible by five.
-      if (tile % 5 === 0) return 0;
+      if (tile % 5 === 0) return 1;
       const row = cell / stride | 0;
-      if (row === 8) return 1;
-      if ((cell % stride / 8 | row / 4 & 2) !== slot) return 0;
+      if (row === 8) return 0;
+      if ((cell % stride / 8 | row / 4 & 2) !== slot) return 1;
       bit <<= 1;
       // Only '$' (36) and '*' (42) are divisible by six.
       initial |= tile % 6 ? 0 : bit;
@@ -37,14 +38,14 @@ for (let instance = 6; --instance;) {
 
     function visit(at, boxes, budget) {
       const budgets = (seen[boxes] ??= []);
-      return (budgets[at] | 0) < budget && (budgets[at] = budget) &&
+      // A wall step would clear the low bit, so it cannot be part of a solution.
+      return (boxes & 1) && (budgets[at] ?? 0) < budget && (budgets[at] = budget) &&
         ((at === home && boxes === goals) || steps.some((step, direction) => {
         const next = at + step;
         const box = boxes & floor[next];
-        const target = box && floor[next + step] & ~boxes & -2;
-        return floor[next] && (!box || target) &&
-          visit(next, boxes ^ box ^ target, budget - !!box) &&
-          (answer = 'udlr'[direction] + answer);
+        // An invalid push clears a box bit and cannot reach the same-size target.
+        return visit(next, boxes ^ box ^ (box && floor[next + step] & ~boxes), budget - !!box) &&
+          (answer = 'drlu'[direction] + answer);
       }));
     }
   }

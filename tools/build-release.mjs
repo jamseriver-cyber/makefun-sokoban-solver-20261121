@@ -29,7 +29,7 @@ const compiled = await minify(program, {
   ecma: 2022,
   module: true,
   compress: {
-    passes: 3,
+    passes: packed ? 2 : 3,
     // The evaluator mounts these paths in every official run.
     global_defs: {
       'process.env.MAKEFUN_INPUT_DIR': '/input',
@@ -52,7 +52,8 @@ if (packed) {
 
   const payload = brotliCompressSync(compiled.code, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
-    [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
+    [constants.BROTLI_PARAM_NPOSTFIX]: 2,
+    [constants.BROTLI_PARAM_NDIRECT]: 8,
     [constants.BROTLI_PARAM_LGWIN]: 16,
     [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(compiled.code),
   } });
@@ -63,7 +64,7 @@ if (packed) {
   mkdirSync(destination, { recursive: true });
   if (sourceBundle) {
     // The anchored source-bundle history retains the complete MIT license.
-    writeFileSync(join(destination, 'LICENSE'), 'SPDX-License-Identifier: MIT\n');
+    writeFileSync(join(destination, 'LICENSE'), 'SPDX-License-Identifier: MIT');
   } else {
     const owner = readFileSync(join(root, '.makefun', 'owner.json'), 'utf8').trimEnd();
     mkdirSync(join(destination, '.makefun'), { recursive: true });
@@ -71,7 +72,8 @@ if (packed) {
     writeFileSync(join(destination, '.makefun', 'owner.json'), owner);
   }
   writeFileSync(join(destination, 's'), payload);
-  writeFileSync(entryPath, notice + launcher);
+  // The complete signed history carries the license and original attribution.
+  writeFileSync(entryPath, sourceBundle ? launcher : notice + launcher);
 } else {
   const notice = attribution.replace('Copyright (c)', '©') + '\n';
   writeFileSync(entryPath, notice + compiled.code);
