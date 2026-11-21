@@ -44,6 +44,19 @@ if (packed) {
     mangle: { reserved: ['s', 't'] },
   });
   if (compiled.error) throw compiled.error;
+  // Freeze the identifier assignment so the compact Brotli payload is reproducible.
+  compiled = UglifyJS.minify(compiled.code, {
+    toplevel: true,
+    compress: false,
+    mangle: { reserved: ['s', 't'] },
+    nameCache: { vars: { props: {
+      $r: 'r', $i: 'i', $o: 'e', $e: 'o',
+      $f: 'f', $a: 'a', $d: 'd', $v: 'v',
+      $n: 'n', $l: 'l', $u: 'm', $x: 'x',
+      $m: 'u', $y: 'y', $c: 'c', $p: 'p',
+    } } },
+  });
+  if (compiled.error) throw compiled.error;
 } else {
   compiled = await minify(program, {
     ecma: 2022,

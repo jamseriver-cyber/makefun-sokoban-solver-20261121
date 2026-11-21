@@ -32,6 +32,7 @@ for (let instance = 6; --instance;) {
     const seen = {};
     // Budgets are positive, with 1 representing zero pushes remaining.
     // Array.some supplies three arguments. The remaining defaults compute the move.
+    // Player positions and box masks stay integers throughout the search.
     const visit = (
       at, boxes, budget,
       budgets = (seen[boxes] ??= []),
@@ -39,7 +40,7 @@ for (let instance = 6; --instance;) {
       (boxes & 1) &&
       (budgets[at] ?? 0) < budget &&
       (budgets[at] = budget) &&
-      ((at === home && boxes === goals) || steps.some((
+      ((at == home && boxes == goals) || steps.some((
         step, direction, _steps,
         next = at + step,
         box = boxes & floor[next],
@@ -48,7 +49,7 @@ for (let instance = 6; --instance;) {
         visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) &&
         (answer = 'drlu'[direction] + answer)
       ));
-    for (let bound = 1; !visit(home, initial, bound); bound++) {}
+    for (let bound = 0; !visit(home, initial, ++bound);) {}
   }
 
   fs.mkdirSync(folder);
