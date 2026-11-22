@@ -30,23 +30,17 @@ for (let instance = 6; --instance;) {
     });
 
     const seen = {};
-    // Budgets are positive, with 1 representing zero pushes remaining.
-    // Array.some supplies three arguments. The remaining defaults compute the move.
+    // At zero budget the assignment is false and the branch stops.
+    // Array.some supplies the step array as its third argument. The box default reuses that binding for the next square.
     const visit = (
       at, boxes, budget,
       budgets = (seen[boxes] ||= []),
     ) =>
       (boxes & 1) &&
-      (budgets[at] || 0) < budget &&
+      !(budgets[at] >= budget) &&
       (budgets[at] = budget) &&
-      ((at === home && boxes === goals) || steps.some((
-        step, direction, _steps,
-        next = at + step,
-        box = boxes & floor[next],
-      ) =>
-        // A wall move loses the sentinel. An invalid crate move loses a crate bit.
-        visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) &&
-        (answer = 'drul'[direction] + answer)
+      ((at == home && boxes == goals) || steps.some((step, direction, next, box = boxes & floor[next = at + step]) =>
+        visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) && (answer = 'drul'[direction] + answer)
       ));
     for (let bound = 0; !visit(home, initial, ++bound);) {}
   }
