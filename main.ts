@@ -24,13 +24,13 @@ for (let instance = 6; --instance;) {
       if ((cell % stride / 8 | row / 4 & 2) !== slot) return 1;
       // Bitwise operations treat bit 31 identically before and after signed conversion.
       bit += bit;
-      initial |= tile % 6 ? 0 : bit;
+      initial |= !(tile % 6) && bit;
       goals |= (tile & 2) && bit;
       return bit;
     });
 
     const seen = {};
-    // Budgets are positive, with 1 representing zero pushes remaining.
+    // A zero budget ends the branch when the assignment below returns zero.
     // Array.some supplies three arguments. The remaining defaults compute the move.
     // Player positions and box masks stay integers throughout the search.
     const visit = (
@@ -38,7 +38,7 @@ for (let instance = 6; --instance;) {
       budgets = (seen[boxes] ??= []),
     ) =>
       (boxes & 1) &&
-      (budgets[at] ?? 0) < budget &&
+      !(budgets[at] >= budget) &&
       (budgets[at] = budget) &&
       ((at == home && boxes == goals) || steps.some((
         step, direction, _steps,

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,11 +79,26 @@ if (packed) {
   }
 
   // Keep the search in a function scope so V8 can optimize its captured variables.
-  const enclosed = '(function(){' + compiled.code.trim() + '})()';
+  let enclosed = '(function(){' + compiled.code.trim() + '})()';
+  // This name assignment applies only to the exact verified compiler output.
+  if (createHash('sha256').update(enclosed).digest('hex') === '5a01c8f3e0edd591077bc73b64826bf35204211934204879f86642f57fd9ec4c') {
+    const tree = UglifyJS.parse(enclosed);
+    tree.figure_out_scope({});
+    const bindings = new Set();
+    tree.walk(new UglifyJS.TreeWalker(node => {
+      if (!(node instanceof UglifyJS.AST_Symbol)) return;
+      const definition = node.definition();
+      if (definition && !definition.undeclared) bindings.add(definition);
+    }));
+    const names = 'rieo_abflmn$urioycnlmrrivoex';
+    if (bindings.size !== names.length) throw new Error('Unexpected packed solver bindings.');
+    [...bindings].forEach((binding, index) => { binding.mangled_name = names[index]; });
+    enclosed = tree.print_to_string();
+  }
   const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
-    [constants.BROTLI_PARAM_NPOSTFIX]: 3,
-    [constants.BROTLI_PARAM_NDIRECT]: 16,
+    [constants.BROTLI_PARAM_NPOSTFIX]: 2,
+    [constants.BROTLI_PARAM_NDIRECT]: 8,
     [constants.BROTLI_PARAM_LGWIN]: 16,
     [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(enclosed),
   } });
