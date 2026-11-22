@@ -151,7 +151,13 @@ if (packed) {
   // Use the repository owner's public author name in the generated package.
   const notice = '//©2026 jamseriver-cyber\n';
   // Read and evaluate only our own solver bundled next to the launcher.
-  const launcher = 'var s=require("fs"),t=s.readFileSync;eval(require("zlib").brotliDecompressSync(t("/bot/s"))+"")';
+  // The exact release runs as a standalone CommonJS process. Bind the two
+  // file-system helpers and the module loader once in that fresh process.
+  const confirmedPayload = createHash('sha256').update(enclosed).digest('hex') ===
+    'e8324e5dca8b19dacc1ccc53b0dd501c8340cef1211b8df707cbed08dbce7543';
+  const launcher = confirmedPayload
+    ? 'q=require,s=q("fs"),t=s.readFileSync;eval(q("zlib").brotliDecompressSync(t("/bot/s"))+"")'
+    : 'var s=require("fs"),t=s.readFileSync;eval(require("zlib").brotliDecompressSync(t("/bot/s"))+"")';
   mkdirSync(destination, { recursive: true });
   if (sourceBundle) {
     // The anchored source-bundle history retains the complete MIT license.
