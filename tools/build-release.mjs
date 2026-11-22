@@ -51,10 +51,10 @@ if (packed) {
     compress: false,
     mangle: { reserved: ['s', 't'] },
     nameCache: { vars: { props: {
-      $r: 'r', $i: 'i', $o: 'e', $e: 'o',
-      $f: 'f', $a: 'a', $d: 'd', $v: 'v',
-      $n: 'n', $l: 'l', $u: 'm', $x: 'x',
-      $m: 'u', $y: 'y', $c: 'c', $p: 'p',
+      $r: 'r', $i: 'i', $o: 'o', $e: 'e',
+      $f: 'n', $a: 'a', $d: 'd', $v: 'v',
+      $n: 'f', $l: 'l', $u: 'u', $x: 'x',
+      $m: 'c', $y: 'y', $c: 'm', $p: 'p',
     } } },
   });
   if (compiled.error) throw compiled.error;
@@ -81,7 +81,7 @@ if (packed) {
   // Keep the search in a function scope so V8 can optimize its captured variables.
   let enclosed = '(function(){' + compiled.code.trim() + '})()';
   // This name assignment applies only to the exact verified compiler output.
-  if (createHash('sha256').update(enclosed).digest('hex') === '5a01c8f3e0edd591077bc73b64826bf35204211934204879f86642f57fd9ec4c') {
+  if (createHash('sha256').update(enclosed).digest('hex') === 'c45aa6ef319d385265f9453dd3babef067ba9d196e964bfad23823c434e783bc') {
     const tree = UglifyJS.parse(enclosed);
     tree.figure_out_scope({});
     const bindings = new Set();
@@ -90,7 +90,7 @@ if (packed) {
       const definition = node.definition();
       if (definition && !definition.undeclared) bindings.add(definition);
     }));
-    const names = 'rieo_abflmn$urioycnlmrrivoex';
+    const names = 'r_oeli$afnbkvrioymnlfrri_eox';
     if (bindings.size !== names.length) throw new Error('Unexpected packed solver bindings.');
     [...bindings].forEach((binding, index) => { binding.mangled_name = names[index]; });
     enclosed = tree.print_to_string();

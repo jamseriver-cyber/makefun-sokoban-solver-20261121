@@ -10,44 +10,43 @@ for (let instance = 6; --instance;) {
   const board = fs.readFileSync(input + id + '/level.txt');
   const stride = board.indexOf(10) + 1;
   const home = board.indexOf(64);
-  const steps = [stride, 1, -1, -stride];
+  const steps = [stride, 1, -stride, -1];
   let answer = '';
 
   // Every subproblem returns the player to the same hallway square.
   // Search slots in reverse so prepended moves keep each route in order.
   for (let slot = 4; slot--;) {
-    // Walls use the low bit. The hallway is walkable and carries no box bit.
+    // Walls use the low bit. The hallway is on row 8 and stays walkable.
+    // Rows 7 and 9 contain all doorways. The low bit of the row closes
+    // those doors when they belong to another room.
     let bit = 1, initial = 1, goals = 1;
-    const floor = Array.from(board, (tile, cell, row = cell / stride | 0) => {
+    const floor = Array.from(board, (tile, cell, row = cell / stride) => {
       if (!(tile % 5)) return 1;
-      if (row === 8) return 0;
-      if ((cell % stride / 8 | row / 4 & 2) !== slot) return 1;
-      // Bitwise operations treat bit 31 identically before and after signed conversion.
-      bit += bit;
-      initial |= !(tile % 6) && bit;
+      if ((cell % stride / 8 | row / 4 & 2) != slot || !(row & 7)) return row & 1;
+      bit <<= 1;
+      initial |= tile % 6 ? 0 : bit;
       goals |= (tile & 2) && bit;
       return bit;
     });
 
     const seen = {};
-    // A zero budget ends the branch when the assignment below returns zero.
+    // Budgets are positive, with 1 representing zero pushes remaining.
     // Array.some supplies three arguments. The remaining defaults compute the move.
-    // Player positions and box masks stay integers throughout the search.
     const visit = (
       at, boxes, budget,
-      budgets = (seen[boxes] ??= []),
+      budgets = (seen[boxes] ||= []),
     ) =>
       (boxes & 1) &&
-      !(budgets[at] >= budget) &&
+      (budgets[at] || 0) < budget &&
       (budgets[at] = budget) &&
-      ((at == home && boxes == goals) || steps.some((
+      ((at === home && boxes === goals) || steps.some((
         step, direction, _steps,
         next = at + step,
         box = boxes & floor[next],
       ) =>
         // A wall move loses the sentinel. An invalid crate move loses a crate bit.
         visit(next, boxes ^ (box && (box | floor[next + step])), budget - !!box) &&
-        (answer = 'drlu'[direction] + answer)
+        (answer = 'drul'[direction] + answer)
       ));
     for (let bound = 0; !visit(home, initial, ++bound);) {}
   }
