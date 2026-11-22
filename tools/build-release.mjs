@@ -101,6 +101,31 @@ if (packed) {
     if (!enclosed.startsWith(prefix)) throw new Error('Unexpected solver prefix.');
     enclosed = '(function(){\nfor(var r=6;--r;){\n' + enclosed.slice(prefix.length);
   }
+  // The pinned code has two for-loop initializers. Preserve each
+  // dependency and use the declaration order that compresses best.
+  if (createHash('sha256').update(enclosed).digest('hex') === 'd8373fcd6fc8a390851ee2da52ef5ab9dc040e2be68b666d71c41a10a1dd609d') {
+    const orders = [
+      ["co","o","e","c","_","l","a","i"],
+      ["x","k","b","n","u","v","m"],
+    ];
+    const tree = UglifyJS.parse(enclosed);
+    const initializers = [];
+    tree.walk(new UglifyJS.TreeWalker(node => {
+      if (node instanceof UglifyJS.AST_For && node.init instanceof UglifyJS.AST_Var && node.init.definitions.length > 1) {
+        initializers.push(node.init);
+      }
+    }));
+    if (initializers.length !== orders.length) throw new Error('Unexpected solver initializers.');
+    initializers.forEach((initializer, index) => {
+      const byName = new Map(initializer.definitions.map(definition => [definition.name.name, definition]));
+      const order = orders[index];
+      if (order.length !== byName.size || order.some(name => !byName.has(name))) {
+        throw new Error('Unexpected solver declarations.');
+      }
+      initializer.definitions = order.map(name => byName.get(name));
+    });
+    enclosed = tree.print_to_string().replace(/^(\(function\(\)\{)(for\([^{}]+\)\{)/, '$1\n$2\n');
+  }
   const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
     [constants.BROTLI_PARAM_NPOSTFIX]: 3,
