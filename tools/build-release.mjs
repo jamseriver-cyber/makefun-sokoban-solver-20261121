@@ -131,6 +131,16 @@ if (packed) {
   if (createHash('sha256').update(enclosed).digest('hex') === '598df8f9d64cca7d28681efee059152845ca90afcc4c38eae199031c292878bf') {
     enclosed = enclosed.replace('l^(o&&o|u[e+r])', '(o&&o|u[e+r])^l');
   }
+  // Share the "/i00" path prefix in the compressed literals. Post-increment
+  // from one visits the same push budgets as pre-increment from zero.
+  if (createHash('sha256').update(enclosed).digest('hex') === 'be1373946c059dee2a44bdecce494a31b971dbf82ced54cff589267e8778116c') {
+    enclosed = enclosed
+      .replace('co="/i00"+r,o="/output"+co,e=t("/input"+co+"/level.txt")',
+        'o="/output/i00"+r,e=t("/input/i00"+r+"/level.txt")')
+      .replace('var x=0,k=1', 'var x=1,k=1')
+      .replace('!m(_,b,++x)', '!m(_,b,x++)')
+      .replace('k|=2&r&&n', 'k|=r&2&&n');
+  }
   const payload = brotliCompressSync(enclosed, { params: {
     [constants.BROTLI_PARAM_QUALITY]: 11,
     [constants.BROTLI_PARAM_NPOSTFIX]: 3,
